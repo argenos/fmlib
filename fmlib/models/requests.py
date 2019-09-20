@@ -19,6 +19,7 @@ class TaskRequest(Request):
     class Meta:
         archive_collection = 'task_request_archive'
         ignore_unknown_fields = True
+        meta_model = "task-request"
 
 
 class TransportationRequest(TaskRequest):
@@ -41,7 +42,7 @@ class TransportationRequest(TaskRequest):
 
     @classmethod
     def from_payload(cls, payload):
-        document = Document.from_msg(payload)
+        document = Document.from_payload(payload)
         document['_id'] = document.pop('request_id')
         request = TransportationRequest.from_document(document)
         request.save()
@@ -54,3 +55,7 @@ class TransportationRequest(TaskRequest):
         dict_repr["earliest_pickup_time"] = self.earliest_pickup_time.isoformat()
         dict_repr["latest_pickup_time"] = self.latest_pickup_time.isoformat()
         return dict_repr
+
+    @property
+    def meta_model(self):
+        return self.Meta.meta_model

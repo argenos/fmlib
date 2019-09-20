@@ -94,7 +94,7 @@ class TimepointConstraints(EmbeddedMongoModel):
 
     @classmethod
     def from_payload(cls, payload):
-        document = Document.from_msg(payload)
+        document = Document.from_payload(payload)
         document['_id'] = document.pop('timepoint_id')
         timepoint_constraints = TimepointConstraints.from_document(document)
         return timepoint_constraints
@@ -115,7 +115,7 @@ class TaskConstraints(EmbeddedMongoModel):
 
     @classmethod
     def from_payload(cls, payload):
-        document = Document.from_msg(payload)
+        document = Document.from_payload(payload)
         timepoint_constraints = [TimepointConstraints.from_payload(timepoint_constraint)
                                  for timepoint_constraint in document.get("timepoint_constraints")]
         document["timepoint_constraints"] = timepoint_constraints
@@ -152,6 +152,7 @@ class Task(MongoModel):
     class Meta:
         archive_collection = 'task_archive'
         ignore_unknown_fields = True
+        meta_model = 'task'
 
     def save(self):
         try:
@@ -168,7 +169,7 @@ class Task(MongoModel):
 
     @classmethod
     def from_payload(cls, payload):
-        document = Document.from_msg(payload)
+        document = Document.from_payload(payload)
         document['_id'] = document.pop('task_id')
         task = Task.from_document(document)
         task.save()
@@ -182,7 +183,7 @@ class Task(MongoModel):
         return dict_repr
 
     def to_msg(self):
-        msg = Message.from_dict(self.to_dict(), '')
+        msg = Message.from_model(self)
         return msg
 
     @classmethod
@@ -227,6 +228,10 @@ class Task(MongoModel):
 
     def update_constraints(self, constraints):
         pass
+
+    @property
+    def meta_model(self):
+        return self.Meta.meta_model
 
 
 class TaskStatus(MongoModel):
