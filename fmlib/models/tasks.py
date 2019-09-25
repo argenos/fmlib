@@ -9,7 +9,6 @@ from pymongo.errors import ServerSelectionTimeoutError
 from ropod.structs.status import TaskStatus as RequestStatus
 from ropod.structs.task import TaskStatus as TaskStatusConst
 from ropod.utils.timestamp import TimeStamp
-from ropod.utils.uuid import generate_uuid
 
 from fmlib.models.requests import TaskRequest
 from fmlib.models.actions import Action
@@ -70,7 +69,7 @@ TaskStatusManager = Manager.from_queryset(TaskStatusQuerySet)
 
 class TimepointConstraints(EmbeddedMongoModel):
 
-    timepoint_id = fields.UUIDField(primary_key=True, default=generate_uuid())
+    timepoint_id = fields.UUIDField(primary_key=True)
     earliest_time = fields.DateTimeField()
     latest_time = fields.DateTimeField()
 
@@ -138,7 +137,7 @@ class TaskPlan(EmbeddedMongoModel):
 
 class Task(MongoModel):
 
-    task_id = fields.UUIDField(primary_key=True, default=generate_uuid())
+    task_id = fields.UUIDField(primary_key=True)
     request = fields.ReferenceField(TaskRequest)
     assigned_robots = fields.ListField()
     plan = fields.EmbeddedDocumentListField(TaskPlan)

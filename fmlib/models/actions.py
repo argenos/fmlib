@@ -1,10 +1,9 @@
 from pymodm import EmbeddedMongoModel, fields
-from ropod.utils.uuid import generate_uuid
 
 
 class Action(EmbeddedMongoModel):
 
-    action_id = fields.UUIDField(primary_key=True, default=generate_uuid())
+    action_id = fields.UUIDField(primary_key=True)
     type = fields.CharField()
 
     class Meta:

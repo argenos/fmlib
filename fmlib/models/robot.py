@@ -1,5 +1,3 @@
-import uuid
-
 from fmlib.models.environment import Position
 from pymodm import EmbeddedMongoModel, fields, MongoModel
 from pymodm.manager import Manager
@@ -35,7 +33,7 @@ class RobotStatus(EmbeddedMongoModel):
 
 class HardwareComponent(EmbeddedMongoModel):
 
-    uuid = fields.UUIDField(primary_key=True, default=uuid.uuid4())
+    uuid = fields.UUIDField(primary_key=True)
     id = fields.CharField()
     model = fields.CharField()
     serial_number = fields.CharField(default='unknown')
@@ -88,7 +86,7 @@ RobotManager = Manager.from_queryset(RobotQuerySet)
 class Robot(MongoModel):
 
     robot_id = fields.CharField(primary_key=True)
-    uuid = fields.UUIDField(default=str(uuid.uuid4()))
+    uuid = fields.UUIDField()
     version = fields.EmbeddedDocumentField(Version)
     # status = fields.EmbeddedDocumentField(RobotStatus)
     position = fields.EmbeddedDocumentField(Position)
