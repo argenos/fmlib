@@ -71,8 +71,6 @@ TaskStatusManager = Manager.from_queryset(TaskStatusQuerySet)
 
 
 class TimepointConstraints(EmbeddedMongoModel):
-
-    timepoint_id = fields.UUIDField(primary_key=True)
     earliest_time = fields.DateTimeField()
     latest_time = fields.DateTimeField()
 
@@ -97,21 +95,18 @@ class TimepointConstraints(EmbeddedMongoModel):
     @classmethod
     def from_payload(cls, payload):
         document = Document.from_payload(payload)
-        document['_id'] = document.pop('timepoint_id')
         timepoint_constraints = TimepointConstraints.from_document(document)
         return timepoint_constraints
 
     def to_dict(self):
         dict_repr = self.to_son().to_dict()
         dict_repr.pop('_cls')
-        dict_repr["timepoint_id"] = str(dict_repr.pop('_id'))
         dict_repr["earliest_time"] = self.earliest_time.isoformat()
         dict_repr["latest_time"] = self.latest_time.isoformat()
         return dict_repr
 
 
 class TaskConstraints(EmbeddedMongoModel):
-
     hard = fields.BooleanField(default=True)
     timepoint_constraints = fields.EmbeddedDocumentListField(TimepointConstraints)
 
@@ -133,13 +128,11 @@ class TaskConstraints(EmbeddedMongoModel):
 
 
 class TaskPlan(EmbeddedMongoModel):
-
     robot = fields.CharField(primary_key=True)
     actions = fields.EmbeddedDocumentListField(Action)
 
 
 class Task(MongoModel):
-
     task_id = fields.UUIDField(primary_key=True)
     request = fields.ReferenceField(TaskRequest)
     assigned_robots = fields.ListField()
@@ -164,7 +157,12 @@ class Task(MongoModel):
 
     @classmethod
     def create_new(cls, **kwargs):
-        task = cls(**kwargs)
+        if 'task_id' not in kwargs.keys():
+            task_id = uuid.uuid4()
+            task = cls(task_id, **kwargs)
+        else:
+            task = cls(**kwargs)
+
         task.save()
         task.update_status(RequestStatus.UNALLOCATED)
         return task
@@ -191,9 +189,7 @@ class Task(MongoModel):
     @classmethod
     def from_request(cls, request):
         constraints = TaskConstraints(hard=request.hard_constraints)
-        task = cls(request=request.request_id, constraints=constraints)
-        task.save()
-        task.update_status(RequestStatus.UNALLOCATED)
+        task = cls.create_new(request=request.request_id, constraints=constraints)
         return task
 
     def update_duration(self, duration):
@@ -272,7 +268,6 @@ class Task(MongoModel):
 
 
 class TaskStatus(MongoModel):
-
     task = fields.ReferenceField(Task, primary_key=True, required=True)
     status = fields.IntegerField(default=RequestStatus.UNALLOCATED)
     delayed = fields.BooleanField(default=False)
