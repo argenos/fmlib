@@ -233,6 +233,10 @@ class Task(MongoModel):
     def meta_model(self):
         return self.Meta.meta_model
 
+    @property
+    def status(self):
+        return TaskStatus.objects.get({"_id": self.task_id})
+
 
 class TaskStatus(MongoModel):
 
