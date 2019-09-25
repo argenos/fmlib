@@ -4,6 +4,7 @@ Inspired by https://realpython.com/inheritance-composition-python/
 """
 
 import json
+import logging
 
 import inflection
 from ropod.utils.timestamp import TimeStamp
@@ -104,8 +105,10 @@ class Message(dict):
 
 class MessageFactory:
 
-    def __init__(self, meta_model_template):
+    def __init__(self, meta_model_template="%s-schema.json"):
+        self.logger = logging.getLogger(__name__)
         self.meta_model_template = meta_model_template
+        self.logger.debug("Initialized with meta model template: %s", meta_model_template)
 
     def create_payload(self, model):
         """Creates a python dictionary from a fmlib model
@@ -126,6 +129,7 @@ class MessageFactory:
         return Header(message_type.upper(), meta_model, **kwargs)
 
     def create_message(self, model, **kwargs):
+        self.logger.debug("Creating message for model %s", model)
         payload = self.create_payload(model)
         header = self.create_header(model.meta_model, **kwargs)
         msg = Message(payload, header)
