@@ -71,7 +71,6 @@ TaskStatusManager = Manager.from_queryset(TaskStatusQuerySet)
 
 
 class TimepointConstraints(EmbeddedMongoModel):
-    timepoint_id = fields.UUIDField(primary_key=True)
     earliest_time = fields.DateTimeField()
     latest_time = fields.DateTimeField()
 
@@ -96,14 +95,12 @@ class TimepointConstraints(EmbeddedMongoModel):
     @classmethod
     def from_payload(cls, payload):
         document = Document.from_payload(payload)
-        document['_id'] = document.pop('timepoint_id')
         timepoint_constraints = TimepointConstraints.from_document(document)
         return timepoint_constraints
 
     def to_dict(self):
         dict_repr = self.to_son().to_dict()
         dict_repr.pop('_cls')
-        dict_repr["timepoint_id"] = str(dict_repr.pop('_id'))
         dict_repr["earliest_time"] = self.earliest_time.isoformat()
         dict_repr["latest_time"] = self.latest_time.isoformat()
         return dict_repr
