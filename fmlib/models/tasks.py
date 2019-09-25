@@ -21,7 +21,10 @@ class TaskQuerySet(QuerySet):
     def get_task(self, task_id):
         """Return a task object matching to a task_id.
         """
-        return self.get({'_id': uuid.UUID(task_id)})
+        if isinstance(task_id, str):
+            task_id = uuid.UUID(task_id)
+
+        return self.get({'_id': task_id})
 
 
 class TaskStatusQuerySet(QuerySet):
