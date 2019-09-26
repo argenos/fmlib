@@ -96,6 +96,10 @@ class Message(dict):
     def header(self):
         return self.get('header')
 
+    @property
+    def timestamp(self):
+        return self.get('header').get('timestamp')
+
     @classmethod
     def from_model(cls, model, **kwargs):
         meta_model_template = kwargs.get('template', '%s')
