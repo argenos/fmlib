@@ -235,6 +235,37 @@ class Task(MongoModel):
     def status(self):
         return TaskStatus.objects.get({"_id": self.task_id})
 
+    @staticmethod
+    def get_task(task_id):
+        return Task.objects.get_task(task_id)
+
+
+    @staticmethod
+    def get_task_status(task_id):
+        return TaskStatus.get({'_id': uuid.UUID(task_id)})
+
+
+    @staticmethod
+    def get_tasks_by_status(status):
+        return [status.task for status in TaskStatus.objects.by_status(status)]
+
+
+    @staticmethod
+    def get_tasks_by_robot(robot_id):
+        return [task for task in Task.objects.all() if robot_id in task.assigned_robots]
+
+
+    @staticmethod
+    def get_tasks(robot_id=None, status=None):
+        if status:
+            tasks = get_tasks_by_status(status)
+        else:
+            tasks = Task.objects.all()
+
+        tasks_by_robot = [task for task in tasks if robot_id in task.assigned_robots]
+
+        return tasks_by_robot
+
 
 class TaskStatus(MongoModel):
     task = fields.ReferenceField(Task, primary_key=True, required=True)

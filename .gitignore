@@ -135,3 +135,7 @@ dmypy.json
 
 # Python egg metadata, regenerated from source files by setuptools.
 /*.egg-info
+
+# Installation files for the old way
+setup.py
+requirements.txt
