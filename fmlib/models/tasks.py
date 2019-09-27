@@ -10,8 +10,7 @@ from pymodm.context_managers import switch_collection
 from pymodm.manager import Manager
 from pymodm.queryset import QuerySet
 from pymongo.errors import ServerSelectionTimeoutError
-from ropod.structs.status import ActionStatus, TaskStatus as RequestStatus
-from ropod.structs.task import TaskStatus as TaskStatusConst
+from ropod.structs.status import ActionStatus, TaskStatus as TaskStatusConst
 from ropod.utils.timestamp import TimeStamp
 
 
@@ -163,7 +162,7 @@ class Task(MongoModel):
             task = cls(**kwargs)
 
         task.save()
-        task.update_status(RequestStatus.UNALLOCATED)
+        task.update_status(TaskStatusConst.UNALLOCATED)
         return task
 
     @classmethod
@@ -172,7 +171,7 @@ class Task(MongoModel):
         document['_id'] = document.pop('task_id')
         task = Task.from_document(document)
         task.save()
-        task.update_status(RequestStatus.UNALLOCATED)
+        task.update_status(TaskStatusConst.UNALLOCATED)
         return task
 
     def to_dict(self):
@@ -323,7 +322,7 @@ class TaskProgress(EmbeddedMongoModel):
 
 class TaskStatus(MongoModel):
     task = fields.ReferenceField(Task, primary_key=True, required=True)
-    status = fields.IntegerField(default=RequestStatus.UNALLOCATED)
+    status = fields.IntegerField(default=TaskStatusConst.UNALLOCATED)
     delayed = fields.BooleanField(default=False)
     progress = fields.EmbeddedDocumentField(TaskProgress)
 
