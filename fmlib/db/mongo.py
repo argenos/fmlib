@@ -75,18 +75,3 @@ class MongoStoreInterface:
                 connection._get_db(alias="default").client.drop_database(self._store.db_name)
             except ServerSelectionTimeoutError as err:
                 self.logger.error(err)
-
-
-class MongoStoreBuilder:
-
-    def __init__(self):
-        self._instance = None
-
-    def __call__(self, db_name, port, **_):
-        if not self._instance:
-            store = MongoStore(db_name, port)
-            self._instance = MongoStoreInterface(store)
-        return self._instance
-
-
-Store = MongoStoreBuilder()

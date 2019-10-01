@@ -1,19 +1,18 @@
 import logging
 import uuid
 
+from fmlib.models.actions import Action, ActionProgress
+from fmlib.models.requests import TaskRequest
+from fmlib.utils.messages import Document
+from fmlib.utils.messages import Message
 from pymodm import EmbeddedMongoModel, fields, MongoModel
 from pymodm.context_managers import switch_collection
 from pymodm.manager import Manager
 from pymodm.queryset import QuerySet
 from pymongo.errors import ServerSelectionTimeoutError
-from ropod.structs.status import TaskStatus as RequestStatus
+from ropod.structs.status import ActionStatus, TaskStatus as RequestStatus
 from ropod.structs.task import TaskStatus as TaskStatusConst
 from ropod.utils.timestamp import TimeStamp
-
-from fmlib.models.requests import TaskRequest
-from fmlib.models.actions import Action
-from fmlib.utils.messages import Document
-from fmlib.utils.messages import Message
 
 
 class TaskQuerySet(QuerySet):
@@ -217,6 +216,7 @@ class Task(MongoModel):
         for robot in robot_id:
             task_plan.robot = robot
             self.plan.append(task_plan)
+        self.update_status(TaskStatusConst.PLANNED)
         self.save()
 
     def update_schedule(self, schedule):
@@ -258,7 +258,7 @@ class Task(MongoModel):
     @staticmethod
     def get_tasks(robot_id=None, status=None):
         if status:
-            tasks = get_tasks_by_status(status)
+            tasks = Task.get_tasks_by_status(status)
         else:
             tasks = Task.objects.all()
 
@@ -266,11 +266,66 @@ class Task(MongoModel):
 
         return tasks_by_robot
 
+    def update_progress(self, action_id, action_status, **kwargs):
+        status = TaskStatus.objects.get({"_id": self.task_id})
+        status.update_progress(action_id, action_status, **kwargs)
+
+
+class TaskProgress(EmbeddedMongoModel):
+
+    current_action = fields.ReferenceField(Action)
+    actions = fields.EmbeddedDocumentListField(ActionProgress)
+
+    class Meta:
+        ignore_unknown_fields = True
+
+    def update(self, action_id, action_status, **kwargs):
+        if action_status == ActionStatus.COMPLETED:
+            self.current_action = self._get_next_action(action_id)
+
+        self.update_action_progress(action_id, action_status, **kwargs)
+
+    def update_action_progress(self, action_id, action_status, **kwargs):
+        idx = self._get_action_index(action_id)
+        self.actions.pop(idx)
+        action_progress = ActionProgress(action_id, action_status)
+        self.actions.insert(idx, action_progress)
+
+    def complete(self):
+        self.current_action = None
+        self.save(cascade=True)
+
+    def _get_action_index(self, action_id):
+        if isinstance(action_id, str):
+            action_id_ = uuid.UUID(action_id)
+        else:
+            action_id_ = action_id
+
+        idx = None
+        for a in self.actions:
+            if a.action.action_id == action_id_:
+                idx = self.actions.index(a)
+
+        return idx
+
+    def _get_next_action(self, action_id):
+        idx = self._get_action_index(action_id)
+        try:
+            return self.actions[idx + 1]
+        except IndexError:
+            # The last action has no next action
+            return None
+
+    def initialize(self, task_plan):
+        for action in task_plan[0].actions:
+            self.actions.append(ActionProgress(action.action_id))
+
 
 class TaskStatus(MongoModel):
     task = fields.ReferenceField(Task, primary_key=True, required=True)
     status = fields.IntegerField(default=RequestStatus.UNALLOCATED)
     delayed = fields.BooleanField(default=False)
+    progress = fields.EmbeddedDocumentField(TaskProgress)
 
     objects = TaskStatusManager()
 
@@ -279,6 +334,15 @@ class TaskStatus(MongoModel):
         ignore_unknown_fields = True
 
     def archive(self):
-        with switch_collection(Task, Task.Meta.archive_collection):
+        with switch_collection(TaskStatus, TaskStatus.Meta.archive_collection):
             super().save()
         self.delete()
+
+    def update_progress(self, action_id, action_status, **kwargs):
+        self.refresh_from_db()
+        if not self.progress:
+            self.progress = TaskProgress()
+            self.progress.initialize(self.task.plan)
+            self.save()
+        self.progress.update(action_id, action_status, **kwargs)
+        self.save(cascade=True)
