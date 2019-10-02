@@ -96,3 +96,9 @@ class Robot(MongoModel):
     class Meta:
         archive_collection = 'robot_archive'
         ignore_unknown_fields = True
+
+    @staticmethod
+    def get_robot(robot_id):
+        return Robot.objects.get_robot(robot_id)
+
+
