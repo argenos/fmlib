@@ -1,11 +1,15 @@
+import logging
+
+from fmlib.base.models import ModelMixin
+from fmlib.models.actions import Action
 from fmlib.models.environment import Position
+from fmlib.models.tasks import Task
 from pymodm import EmbeddedMongoModel, fields, MongoModel
+from pymodm.context_managers import switch_collection
 from pymodm.manager import Manager
 from pymodm.queryset import QuerySet
+from pymongo.errors import ServerSelectionTimeoutError
 from ropod.structs.status import AvailabilityStatus
-
-from fmlib.models.actions import Action
-from fmlib.models.tasks import Task
 
 
 class ComponentStatus(EmbeddedMongoModel):
@@ -97,8 +101,30 @@ class Robot(MongoModel):
         archive_collection = 'robot_archive'
         ignore_unknown_fields = True
 
+    def save(self):
+        try:
+            super().save(cascade=True)
+        except ServerSelectionTimeoutError:
+            logging.warning('Could not save models to MongoDB')
+
+    def archive(self):
+        with switch_collection(self, self.Meta.archive_collection):
+            super().save()
+        self.delete()
+
     @staticmethod
     def get_robot(robot_id):
         return Robot.objects.get_robot(robot_id)
 
+    def update_position(self, **kwargs):
+        self.position.update_2d_pose(**kwargs)
+        self.save()
 
+    @classmethod
+    def create_new(cls, robot_id, **kwargs):
+        robot = cls(robot_id, **kwargs)
+        robot.position = Position()
+
+        robot.save()
+
+        return robot
