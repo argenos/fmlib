@@ -1,6 +1,5 @@
 import logging
 
-from fmlib.base.models import ModelMixin
 from fmlib.models.actions import Action
 from fmlib.models.environment import Position
 from fmlib.models.tasks import Task
