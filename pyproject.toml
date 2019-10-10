@@ -8,10 +8,12 @@ authors = ["Argentina Ortega Sáinz"]
 python = "^3.5"
 inflection = "^0.3.1"
 pymodm = "^0.4.1"
-pymongo = "^3.9.0"
 gunicorn = "^19.9.0"
 falcon = "^2.0.0"
+empy = "^3.3.4"
 rospkg = "^1.1.10 "
+catkin-pkg= "^0.4.13"
+rospy_message_converter = { git = "https://github.com:/ropod-project/rospy_message_converter.git" }
 
 [tool.poetry.dev-dependencies]
 pytest = "^3.0"
