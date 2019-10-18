@@ -14,6 +14,7 @@ class MongoStore:
         self.ip = kwargs.get('ip', 'localhost')
         self._connected = False
         self._connection_timeout = kwargs.get('connectTimeoutMS', 30) * 1000
+        self.alias = kwargs.get("alias", "default")
 
         self.connect()
 
@@ -25,7 +26,7 @@ class MongoStore:
 
         try:
             # Default timeout is 30s
-            connect(connection_str, alias="default", serverSelectionTimeoutMS=self._connection_timeout)
+            connect(connection_str, alias=self.alias, serverSelectionTimeoutMS=self._connection_timeout)
             self._connected = True
         except ServerSelectionTimeoutError as err:
             self.logger.critical("Cannot connect to MongoDB", exc_info=True)
@@ -72,6 +73,6 @@ class MongoStoreInterface:
     def clean(self):
         if self._store.connected:
             try:
-                connection._get_db(alias="default").client.drop_database(self._store.db_name)
+                connection._get_db(alias=self._store.alias).client.drop_database(self._store.db_name)
             except ServerSelectionTimeoutError as err:
                 self.logger.error(err)

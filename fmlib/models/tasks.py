@@ -226,6 +226,15 @@ class Task(MongoModel):
     def update_constraints(self, constraints):
         pass
 
+    def is_executable(self):
+        current_time = TimeStamp()
+        start_time = TimeStamp.from_datetime(self.start_time)
+
+        if start_time < current_time:
+            return True
+        else:
+            return False
+
     @property
     def meta_model(self):
         return self.Meta.meta_model
