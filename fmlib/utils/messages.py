@@ -35,7 +35,7 @@ def format_document(doc_dict):
 
 class Header:
 
-    def __new__(cls, message_type, meta_model, **kwargs):
+    def __new__(cls, message_type, meta_model=None, **kwargs):
 
         recipients = kwargs.get('recipients', list())
         if recipients is not None and not isinstance(recipients, list):
