@@ -106,6 +106,12 @@ class Message(dict):
         mf = MessageFactory(meta_model_template)
         return mf.create_message(model)
 
+    def refresh(self):
+        """Update the header with new values
+        """
+        self['header']['timestamp'] = TimeStamp().to_str()
+        self['header']['msgId'] = str(generate_uuid())
+
 
 class MessageFactory:
 
