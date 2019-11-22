@@ -203,8 +203,8 @@ class Task(MongoModel):
         task_status = TaskStatus(task=self.task_id, status=status)
         task_status.save()
         if status in [TaskStatusConst.COMPLETED, TaskStatusConst.CANCELED]:
-            self.archive()
             task_status.archive()
+            self.archive()
 
     def assign_robots(self, robot_ids):
         self.assigned_robots = robot_ids
