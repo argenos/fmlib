@@ -289,7 +289,8 @@ class TaskProgress(EmbeddedMongoModel):
 
     def update(self, action_id, action_status, **kwargs):
         if action_status == ActionStatus.COMPLETED:
-            self.current_action = self._get_next_action(action_id)
+            self.current_action = self._get_next_action(action_id).action.action_id \
+                if self._get_next_action(action_id) is not None else self.current_action
 
         self.update_action_progress(action_id, action_status, **kwargs)
 
