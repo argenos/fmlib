@@ -202,7 +202,7 @@ class Task(MongoModel):
     def update_status(self, status):
         task_status = TaskStatus(task=self.task_id, status=status)
         task_status.save()
-        if status in [TaskStatusConst.COMPLETED, TaskStatusConst.CANCELED]:
+        if status in [TaskStatusConst.COMPLETED, TaskStatusConst.CANCELED, TaskStatusConst.ABORTED]:
             task_status.archive()
             self.archive()
 
