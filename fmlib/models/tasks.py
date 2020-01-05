@@ -12,6 +12,7 @@ from pymodm.queryset import QuerySet
 from pymongo.errors import ServerSelectionTimeoutError
 from ropod.structs.status import ActionStatus, TaskStatus as TaskStatusConst
 from ropod.utils.timestamp import TimeStamp
+from pymodm.errors import DoesNotExist
 
 
 class TaskQuerySet(QuerySet):
@@ -200,7 +201,11 @@ class Task(MongoModel):
         self.delete()
 
     def update_status(self, status):
-        task_status = TaskStatus(task=self.task_id, status=status)
+        try:
+            task_status = Task.get_task_status(self.task_id)
+            task_status.status = status
+        except DoesNotExist:
+            task_status = TaskStatus(task=self.task_id, status=status)
         task_status.save()
         if status in [TaskStatusConst.COMPLETED, TaskStatusConst.CANCELED, TaskStatusConst.ABORTED]:
             task_status.archive()
@@ -250,7 +255,7 @@ class Task(MongoModel):
 
     @staticmethod
     def get_task_status(task_id):
-        return TaskStatus.get({'_id': uuid.UUID(task_id)})
+        return TaskStatus.objects.get({'_id': task_id})
 
 
     @staticmethod
