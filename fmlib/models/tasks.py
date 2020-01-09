@@ -330,7 +330,8 @@ class TaskProgress(EmbeddedMongoModel):
             # The last action has no next action
             return None
 
-    def initialize(self, task_plan):
+    def initialize(self, action_id, task_plan):
+        self.current_action = action_id
         for action in task_plan[0].actions:
             self.actions.append(ActionProgress(action.action_id))
 
@@ -356,7 +357,7 @@ class TaskStatus(MongoModel):
         self.refresh_from_db()
         if not self.progress:
             self.progress = TaskProgress()
-            self.progress.initialize(self.task.plan)
+            self.progress.initialize(action_id, self.task.plan)
             self.save()
         self.progress.update(action_id, action_status, **kwargs)
         self.save(cascade=True)
