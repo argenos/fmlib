@@ -309,6 +309,10 @@ class TaskProgress(EmbeddedMongoModel):
         self.current_action = None
         self.save(cascade=True)
 
+    def get_action(self, action_id):
+        idx = self._get_action_index(action_id)
+        return self.actions[idx]
+
     def _get_action_index(self, action_id):
         if isinstance(action_id, str):
             action_id_ = uuid.UUID(action_id)
