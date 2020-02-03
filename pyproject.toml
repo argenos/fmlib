@@ -13,7 +13,7 @@ falcon = "^2.0.0"
 empy = "^3.3.4"
 rospkg = "^1.1.10 "
 catkin-pkg= "^0.4.13"
-rospy_message_converter = { git = "https://github.com:/ropod-project/rospy_message_converter.git" }
+rospy_message_converter = { git = "https://github.com:/ropod-project/rospy_message_converter.git",  rev="041f27d"}
 
 [tool.poetry.dev-dependencies]
 pytest = "^3.0"
