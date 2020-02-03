@@ -12,6 +12,7 @@ from pymodm.queryset import QuerySet
 from pymongo.errors import ServerSelectionTimeoutError
 from ropod.structs.status import ActionStatus, TaskStatus as TaskStatusConst
 from ropod.utils.timestamp import TimeStamp
+from pymodm.errors import DoesNotExist
 
 
 class TaskQuerySet(QuerySet):
@@ -200,9 +201,13 @@ class Task(MongoModel):
         self.delete()
 
     def update_status(self, status):
-        task_status = TaskStatus(task=self.task_id, status=status)
+        try:
+            task_status = Task.get_task_status(self.task_id)
+            task_status.status = status
+        except DoesNotExist:
+            task_status = TaskStatus(task=self.task_id, status=status)
         task_status.save()
-        if status in [TaskStatusConst.COMPLETED, TaskStatusConst.CANCELED]:
+        if status in [TaskStatusConst.COMPLETED, TaskStatusConst.CANCELED, TaskStatusConst.ABORTED]:
             task_status.archive()
             self.archive()
 
@@ -250,7 +255,7 @@ class Task(MongoModel):
 
     @staticmethod
     def get_task_status(task_id):
-        return TaskStatus.get({'_id': uuid.UUID(task_id)})
+        return TaskStatus.objects.get({'_id': task_id})
 
 
     @staticmethod
@@ -289,7 +294,8 @@ class TaskProgress(EmbeddedMongoModel):
 
     def update(self, action_id, action_status, **kwargs):
         if action_status == ActionStatus.COMPLETED:
-            self.current_action = self._get_next_action(action_id)
+            self.current_action = self._get_next_action(action_id).action.action_id \
+                if self._get_next_action(action_id) is not None else self.current_action
 
         self.update_action_progress(action_id, action_status, **kwargs)
 
@@ -302,6 +308,10 @@ class TaskProgress(EmbeddedMongoModel):
     def complete(self):
         self.current_action = None
         self.save(cascade=True)
+
+    def get_action(self, action_id):
+        idx = self._get_action_index(action_id)
+        return self.actions[idx]
 
     def _get_action_index(self, action_id):
         if isinstance(action_id, str):
@@ -324,7 +334,8 @@ class TaskProgress(EmbeddedMongoModel):
             # The last action has no next action
             return None
 
-    def initialize(self, task_plan):
+    def initialize(self, action_id, task_plan):
+        self.current_action = action_id
         for action in task_plan[0].actions:
             self.actions.append(ActionProgress(action.action_id))
 
@@ -350,7 +361,7 @@ class TaskStatus(MongoModel):
         self.refresh_from_db()
         if not self.progress:
             self.progress = TaskProgress()
-            self.progress.initialize(self.task.plan)
+            self.progress.initialize(action_id, self.task.plan)
             self.save()
         self.progress.update(action_id, action_status, **kwargs)
         self.save(cascade=True)
