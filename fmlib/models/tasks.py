@@ -302,7 +302,7 @@ class TaskProgress(EmbeddedMongoModel):
     def update_action_progress(self, action_id, action_status, **kwargs):
         idx = self._get_action_index(action_id)
         self.actions.pop(idx)
-        action_progress = ActionProgress(action_id, action_status)
+        action_progress = ActionProgress(action_id, action_status, **kwargs)
         self.actions.insert(idx, action_progress)
 
     def complete(self):
