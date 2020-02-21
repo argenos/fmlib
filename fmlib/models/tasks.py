@@ -134,8 +134,8 @@ class TaskPlan(EmbeddedMongoModel):
 class Task(MongoModel):
     task_id = fields.UUIDField(primary_key=True)
     request = fields.ReferenceField(TaskRequest)
-    assigned_robots = fields.ListField()
-    plan = fields.EmbeddedDocumentListField(TaskPlan)
+    assigned_robots = fields.ListField(blank=True)
+    plan = fields.EmbeddedDocumentListField(TaskPlan, blank=True)
     constraints = fields.EmbeddedDocumentField(TaskConstraints)
     duration = fields.FloatField()
     start_time = fields.DateTimeField()
