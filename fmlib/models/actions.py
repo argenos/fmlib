@@ -39,3 +39,5 @@ class GoTo(Action):
 class ActionProgress(EmbeddedMongoModel):
     action = fields.ReferenceField(Action)
     status = fields.IntegerField(default=ActionStatus.PLANNED)
+    start_time = fields.DateTimeField()
+    finish_time = fields.DateTimeField()
