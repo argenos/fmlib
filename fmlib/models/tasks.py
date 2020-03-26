@@ -239,25 +239,22 @@ class Task(MongoModel):
         task = cls.create_new(request=request.request_id, constraints=constraints)
         return task
 
-    def freeze(self):
-        self.frozen = True
-        self.save()
+    @property
+    def delayed(self):
+        return self.status.delayed
 
-    def unfreeze(self):
-        self.frozen = False
-        self.save()
-
-    def mark_as_delayed(self):
+    @delayed.setter
+    def delayed(self, boolean):
         task_status = Task.get_task_status(self.task_id)
-        task_status.delayed = True
+        task_status.delayed = boolean
         task_status.save()
 
-    def unmark_as_delayed(self):
-        task_status = Task.get_task_status(self.task_id)
-        task_status.delayed = False
-        task_status.save()
+    @property
+    def hard_constraints(self):
+        return self.constraints.hard
 
-    def set_soft_constraints(self):
+    @hard_constraints.setter
+    def hard_constraints(self, boolean):
         self.constraints.hard = False
         self.save()
 
