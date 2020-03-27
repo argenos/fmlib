@@ -100,7 +100,6 @@ class Task(MongoModel):
     constraints = fields.EmbeddedDocumentField(TaskConstraints)
     start_time = fields.DateTimeField()
     finish_time = fields.DateTimeField()
-    frozen = fields.BooleanField(default=False)
 
     objects = TaskManager()
 
