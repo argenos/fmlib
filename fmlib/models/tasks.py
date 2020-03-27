@@ -1,18 +1,21 @@
 import logging
 import uuid
+from datetime import datetime
 
-from fmlib.models.actions import Action, ActionProgress
-from fmlib.models.requests import TaskRequest
-from fmlib.utils.messages import Document
-from fmlib.utils.messages import Message
+import dateutil.parser
 from pymodm import EmbeddedMongoModel, fields, MongoModel
 from pymodm.context_managers import switch_collection
+from pymodm.errors import DoesNotExist
 from pymodm.manager import Manager
 from pymodm.queryset import QuerySet
 from pymongo.errors import ServerSelectionTimeoutError
 from ropod.structs.status import ActionStatus, TaskStatus as TaskStatusConst
 from ropod.utils.timestamp import TimeStamp
-from pymodm.errors import DoesNotExist
+
+from fmlib.models.actions import Action, ActionProgress
+from fmlib.models.requests import TaskRequest
+from fmlib.utils.messages import Document
+from fmlib.utils.messages import Message
 
 
 class TaskQuerySet(QuerySet):
@@ -69,60 +72,18 @@ TaskManager = Manager.from_queryset(TaskQuerySet)
 TaskStatusManager = Manager.from_queryset(TaskStatusQuerySet)
 
 
-class TimepointConstraints(EmbeddedMongoModel):
-    earliest_time = fields.DateTimeField()
-    latest_time = fields.DateTimeField()
-
-    @staticmethod
-    def relative_to_ztp(timepoint, ztp, resolution="minutes"):
-        """ Returns the timepoint constraints relative to a ZTP (zero timepoint)
-
-        Args:
-            timepoint (TimepointConstraints): timepoint
-            ztp (TimeStamp): Zero Time Point. Origin time to which the timepoint will be referenced to
-            resolution (str): Resolution of the difference between the timepoint constraints and the ztp
-
-        Return: r_earliest_time (float): earliest time relative to the ztp
-                r_latest_time (float): latest time relative to the ztp
-        """
-
-        r_earliest_time = TimeStamp.from_datetime(timepoint.earliest_time).get_difference(ztp, resolution)
-        r_latest_time = TimeStamp.from_datetime(timepoint.latest_time).get_difference(ztp, resolution)
-
-        return r_earliest_time, r_latest_time
-
-    @classmethod
-    def from_payload(cls, payload):
-        document = Document.from_payload(payload)
-        timepoint_constraints = TimepointConstraints.from_document(document)
-        return timepoint_constraints
-
-    def to_dict(self):
-        dict_repr = self.to_son().to_dict()
-        dict_repr.pop('_cls')
-        dict_repr["earliest_time"] = self.earliest_time.isoformat()
-        dict_repr["latest_time"] = self.latest_time.isoformat()
-        return dict_repr
-
-
 class TaskConstraints(EmbeddedMongoModel):
     hard = fields.BooleanField(default=True)
-    timepoint_constraints = fields.EmbeddedDocumentListField(TimepointConstraints)
 
     @classmethod
     def from_payload(cls, payload):
         document = Document.from_payload(payload)
-        timepoint_constraints = [TimepointConstraints.from_payload(timepoint_constraint)
-                                 for timepoint_constraint in document.get("timepoint_constraints")]
-        document["timepoint_constraints"] = timepoint_constraints
-        task_constraints = TaskConstraints.from_document(document)
+        task_constraints = cls.from_document(document)
         return task_constraints
 
     def to_dict(self):
         dict_repr = self.to_son().to_dict()
         dict_repr.pop('_cls')
-        timepoint_constraints = [timepoint_constraint.to_dict() for timepoint_constraint in self.timepoint_constraints]
-        dict_repr["timepoint_constraints"] = timepoint_constraints
         return dict_repr
 
 
@@ -137,7 +98,6 @@ class Task(MongoModel):
     assigned_robots = fields.ListField(blank=True)
     plan = fields.EmbeddedDocumentListField(TaskPlan, blank=True)
     constraints = fields.EmbeddedDocumentField(TaskConstraints)
-    duration = fields.FloatField()
     start_time = fields.DateTimeField()
     finish_time = fields.DateTimeField()
 
@@ -167,18 +127,23 @@ class Task(MongoModel):
         return task
 
     @classmethod
-    def from_payload(cls, payload):
+    def from_payload(cls, payload, **kwargs):
         document = Document.from_payload(payload)
         document['_id'] = document.pop('task_id')
-        task = Task.from_document(document)
+        for key, value in kwargs.items():
+            document[key] = value.from_payload(document.pop(key))
+        task = cls.from_document(document)
         task.save()
         task.update_status(TaskStatusConst.UNALLOCATED)
         return task
 
-    def to_dict(self):
+    def to_dict(self, **kwargs):
         dict_repr = self.to_son().to_dict()
         dict_repr.pop('_cls')
         dict_repr["task_id"] = str(dict_repr.pop('_id'))
+        dict_repr["constraints"] = self.constraints.to_dict()
+        if kwargs.get("request"):
+            dict_repr["request"] = self.request.to_dict()
         return dict_repr
 
     def to_msg(self):
@@ -191,8 +156,23 @@ class Task(MongoModel):
         task = cls.create_new(request=request.request_id, constraints=constraints)
         return task
 
-    def update_duration(self, duration):
-        self.duration = duration
+    @property
+    def delayed(self):
+        return self.status.delayed
+
+    @delayed.setter
+    def delayed(self, boolean):
+        task_status = Task.get_task_status(self.task_id)
+        task_status.delayed = boolean
+        task_status.save()
+
+    @property
+    def hard_constraints(self):
+        return self.constraints.hard
+
+    @hard_constraints.setter
+    def hard_constraints(self, boolean):
+        self.constraints.hard = boolean
         self.save()
 
     def archive(self):
@@ -228,9 +208,6 @@ class Task(MongoModel):
         self.finish_time = schedule['finish_time']
         self.save()
 
-    def update_constraints(self, constraints):
-        pass
-
     def is_executable(self):
         current_time = TimeStamp()
         start_time = TimeStamp.from_datetime(self.start_time)
@@ -248,9 +225,9 @@ class Task(MongoModel):
     def status(self):
         return TaskStatus.objects.get({"_id": self.task_id})
 
-    @staticmethod
-    def get_task(task_id):
-        return Task.objects.get_task(task_id)
+    @classmethod
+    def get_task(cls, task_id):
+        return cls.objects.get_task(task_id)
 
 
     @staticmethod
@@ -263,17 +240,17 @@ class Task(MongoModel):
         return [status.task for status in TaskStatus.objects.by_status(status)]
 
 
-    @staticmethod
-    def get_tasks_by_robot(robot_id):
-        return [task for task in Task.objects.all() if robot_id in task.assigned_robots]
+    @classmethod
+    def get_tasks_by_robot(cls, robot_id):
+        return [task for task in cls.objects.all() if robot_id in task.assigned_robots]
 
 
-    @staticmethod
-    def get_tasks(robot_id=None, status=None):
+    @classmethod
+    def get_tasks(cls, robot_id=None, status=None):
         if status:
-            tasks = Task.get_tasks_by_status(status)
+            tasks = cls.get_tasks_by_status(status)
         else:
-            tasks = Task.objects.all()
+            tasks = cls.objects.all()
 
         tasks_by_robot = [task for task in tasks if robot_id in task.assigned_robots]
 
@@ -282,6 +259,145 @@ class Task(MongoModel):
     def update_progress(self, action_id, action_status, **kwargs):
         status = TaskStatus.objects.get({"_id": self.task_id})
         status.update_progress(action_id, action_status, **kwargs)
+
+
+class TimepointConstraint(EmbeddedMongoModel):
+    earliest_time = fields.DateTimeField()
+    latest_time = fields.DateTimeField()
+
+    def __str__(self):
+        to_print = ""
+        to_print += "[{}, {}]".format(self.earliest_time.isoformat(), self.latest_time.isoformat())
+        return to_print
+
+    @classmethod
+    def from_payload(cls, payload):
+        document = Document.from_payload(payload)
+        document["earliest_time"] = dateutil.parser.parse(document.pop("earliest_time"))
+        document["latest_time"] = dateutil.parser.parse(document.pop("latest_time"))
+        return cls.from_document(document)
+
+    def to_dict(self):
+        dict_repr = self.to_son().to_dict()
+        dict_repr.pop('_cls')
+        dict_repr["earliest_time"] = self.earliest_time.isoformat()
+        dict_repr["latest_time"] = self.latest_time.isoformat()
+        return dict_repr
+
+    def update(self, earliest_time, latest_time):
+        self.earliest_time = earliest_time
+        self.latest_time = latest_time
+
+
+class InterTimepointConstraint(EmbeddedMongoModel):
+    mean = fields.FloatField()
+    variance = fields.FloatField()
+
+    @property
+    def standard_dev(self):
+        return round(self.variance ** 0.5, 3)
+
+    def __str__(self):
+        to_print = ""
+        to_print += "N({}, {})".format(self.mean, self.standard_dev)
+        return to_print
+
+    @classmethod
+    def from_payload(cls, payload):
+        document = Document.from_payload(payload)
+        return cls.from_document(document)
+
+    def to_dict(self):
+        dict_repr = self.to_son().to_dict()
+        dict_repr.pop('_cls')
+        return dict_repr
+
+    def update(self, mean, variance):
+        self.mean = mean
+        self.variance = variance
+
+
+class TransportationTemporalConstraints(EmbeddedMongoModel):
+    pickup = fields.EmbeddedDocumentField(TimepointConstraint)
+    duration = fields.EmbeddedDocumentField(InterTimepointConstraint)
+
+    @classmethod
+    def from_payload(cls, payload):
+        document = Document.from_payload(payload)
+        document['pickup'] = TimepointConstraint.from_payload(document.get('pickup'))
+        document['duration'] = InterTimepointConstraint.from_payload(document.get('duration'))
+        temporal_constraints = cls.from_document(document)
+        return temporal_constraints
+
+    def to_dict(self):
+        dict_repr = self.to_son().to_dict()
+        dict_repr.pop('_cls')
+        dict_repr['pickup'] = self.pickup.to_dict()
+        dict_repr['duration'] = self.duration.to_dict()
+        return dict_repr
+
+
+class TransportationTaskConstraints(TaskConstraints):
+    temporal = fields.EmbeddedDocumentField(TransportationTemporalConstraints)
+
+    @classmethod
+    def from_payload(cls, payload):
+        document = Document.from_payload(payload)
+        document["temporal"] = TransportationTemporalConstraints.from_payload(document.pop("temporal"))
+        task_constraints = cls.from_document(document)
+        return task_constraints
+
+    def to_dict(self):
+        dict_repr = super().to_dict()
+        dict_repr['temporal'] = self.temporal.to_dict()
+        return dict_repr
+
+
+class TransportationTask(Task):
+    constraints = fields.EmbeddedDocumentField(TransportationTaskConstraints)
+
+    objects = TaskManager()
+
+    @classmethod
+    def from_request(cls, request):
+        pickup = TimepointConstraint(earliest_time=request.earliest_pickup_time, latest_time=request.latest_pickup_time)
+        temporal = TransportationTemporalConstraints(pickup=pickup, duration=InterTimepointConstraint())
+        constraints = TransportationTaskConstraints(hard=request.hard_constraints, temporal=temporal)
+        task = cls.create_new(request=request.request_id, constraints=constraints)
+        return task
+
+    def archive(self):
+        with switch_collection(TransportationTask, Task.Meta.archive_collection):
+            super().save()
+        self.delete()
+
+    @property
+    def duration(self):
+        return self.constraints.temporal.duration
+
+    def update_duration(self, mean, variance):
+        self.duration.update(mean, variance)
+        self.save()
+
+    @property
+    def pickup_constraint(self):
+        return self.constraints.temporal.pickup
+
+    def update_pickup_constraint(self, earliest_time, latest_time):
+        self.pickup_constraint.update(earliest_time, latest_time)
+        self.save()
+
+    @classmethod
+    def get_earliest_task(cls, tasks=None):
+        if tasks is None:
+            tasks = [task for task in cls.objects.all()]
+        earliest_time = datetime.max
+        earliest_task = None
+        for task in tasks:
+            if task.pickup_constraint.earliest_time < earliest_time:
+                earliest_time = task.pickup_constraint.earliest_time
+                earliest_task = task
+        return earliest_task
 
 
 class TaskProgress(EmbeddedMongoModel):
