@@ -117,11 +117,10 @@ class Task(MongoModel):
     @classmethod
     def create_new(cls, **kwargs):
         if 'task_id' not in kwargs.keys():
-            task_id = uuid.uuid4()
-            task = cls(task_id, **kwargs)
-        else:
-            task = cls(**kwargs)
-
+            kwargs.update(task_id=uuid.uuid4())
+        elif 'constraints' not in kwargs.keys():
+            kwargs.update(constraints=TaskConstraints())
+        task = cls(**kwargs)
         task.save()
         task.update_status(TaskStatusConst.UNALLOCATED)
         return task
@@ -358,12 +357,12 @@ class TransportationTask(Task):
 
     @classmethod
     def create_new(cls, **kwargs):
-        task = super().create_new(**kwargs)
-        if task.constraints is None:
+        if 'constraints' not in kwargs.keys():
             pickup = TimepointConstraint(earliest_time=datetime.now(),
                                          latest_time=datetime.now() + timedelta(minutes=1))
             temporal = TransportationTemporalConstraints(pickup=pickup, duration=InterTimepointConstraint())
-            task.constraints = TransportationTaskConstraints(temporal=temporal)
+            kwargs.update(constraints=TransportationTaskConstraints(temporal=temporal))
+        task = super().create_new(**kwargs)
         task.save()
         return task
 
