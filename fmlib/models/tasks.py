@@ -137,13 +137,11 @@ class Task(MongoModel):
         task.update_status(TaskStatusConst.UNALLOCATED)
         return task
 
-    def to_dict(self, **kwargs):
+    def to_dict(self):
         dict_repr = self.to_son().to_dict()
         dict_repr.pop('_cls')
         dict_repr["task_id"] = str(dict_repr.pop('_id'))
         dict_repr["constraints"] = self.constraints.to_dict()
-        if kwargs.get("request"):
-            dict_repr["request"] = self.request.to_dict()
         return dict_repr
 
     def to_msg(self):
