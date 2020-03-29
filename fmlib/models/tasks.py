@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import dateutil.parser
 from pymodm import EmbeddedMongoModel, fields, MongoModel
@@ -357,6 +357,17 @@ class TransportationTask(Task):
     constraints = fields.EmbeddedDocumentField(TransportationTaskConstraints)
 
     objects = TaskManager()
+
+    @classmethod
+    def create_new(cls, **kwargs):
+        task = super().create_new(**kwargs)
+        if task.constraints is None:
+            pickup = TimepointConstraint(earliest_time=datetime.now(),
+                                         latest_time=datetime.now() + timedelta(minutes=1))
+            temporal = TransportationTemporalConstraints(pickup=pickup, duration=InterTimepointConstraint())
+            task.constraints = TransportationTaskConstraints(temporal=temporal)
+        task.save()
+        return task
 
     @classmethod
     def from_request(cls, request):
