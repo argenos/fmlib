@@ -127,3 +127,9 @@ class Robot(MongoModel):
         robot.save()
 
         return robot
+
+    def to_dict(self):
+        dict_repr = self.to_son().to_dict()
+        dict_repr.pop('_cls')
+        dict_repr["robot_id"] = str(dict_repr.pop('_id'))
+        return dict_repr
