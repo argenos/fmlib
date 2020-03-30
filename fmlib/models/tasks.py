@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import dateutil.parser
 from pymodm import EmbeddedMongoModel, fields, MongoModel
@@ -117,11 +117,10 @@ class Task(MongoModel):
     @classmethod
     def create_new(cls, **kwargs):
         if 'task_id' not in kwargs.keys():
-            task_id = uuid.uuid4()
-            task = cls(task_id, **kwargs)
-        else:
-            task = cls(**kwargs)
-
+            kwargs.update(task_id=uuid.uuid4())
+        elif 'constraints' not in kwargs.keys():
+            kwargs.update(constraints=TaskConstraints())
+        task = cls(**kwargs)
         task.save()
         task.update_status(TaskStatusConst.UNALLOCATED)
         return task
@@ -137,13 +136,11 @@ class Task(MongoModel):
         task.update_status(TaskStatusConst.UNALLOCATED)
         return task
 
-    def to_dict(self, **kwargs):
+    def to_dict(self):
         dict_repr = self.to_son().to_dict()
         dict_repr.pop('_cls')
         dict_repr["task_id"] = str(dict_repr.pop('_id'))
         dict_repr["constraints"] = self.constraints.to_dict()
-        if kwargs.get("request"):
-            dict_repr["request"] = self.request.to_dict()
         return dict_repr
 
     def to_msg(self):
@@ -357,6 +354,17 @@ class TransportationTask(Task):
     constraints = fields.EmbeddedDocumentField(TransportationTaskConstraints)
 
     objects = TaskManager()
+
+    @classmethod
+    def create_new(cls, **kwargs):
+        if 'constraints' not in kwargs.keys():
+            pickup = TimepointConstraint(earliest_time=datetime.now(),
+                                         latest_time=datetime.now() + timedelta(minutes=1))
+            temporal = TransportationTemporalConstraints(pickup=pickup, duration=InterTimepointConstraint())
+            kwargs.update(constraints=TransportationTaskConstraints(temporal=temporal))
+        task = super().create_new(**kwargs)
+        task.save()
+        return task
 
     @classmethod
     def from_request(cls, request):
