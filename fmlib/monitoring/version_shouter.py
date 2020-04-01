@@ -7,7 +7,8 @@ from wstool.multiproject_cmd import cmd_info, get_config
 
 class VersionShouter:
 
-    def __init__(self, base_path, config_filename, robot_id=None):
+    def __init__(self, base_path, sw_config_filename='.rosinstall', hw_config_filename='.hw.rosinstall',
+                 robot_id=None):
         zyre_config = {
             'node_name': 'version_shouter',
             'groups': ['ROPOD'],
@@ -15,7 +16,8 @@ class VersionShouter:
         }
 
         self.shouter = ZyreInterface(zyre_config, logger_name='fms.robot.version_shouter')
-        self.config = get_config(base_path, config_filename=base_path + config_filename)
+        self.sw_config = get_config(base_path, config_filename=base_path + sw_config_filename)
+        self.hw_config = get_config(base_path, config_filename=base_path + hw_config_filename)
 
         if robot_id is None:
             self.robot_id = os.environ.get('ROBOT_ID', 'ropod_001')
@@ -24,10 +26,12 @@ class VersionShouter:
 
     def run(self):
         self.shouter.start()
-        x = cmd_info(self.config)
+        sw_config = cmd_info(self.sw_config)
+        hw_config = cmd_info(self.hw_config)
         msg = {'header': Header('ROBOT-VERSION'),
                'payload': {
-                   'softwareVersion': x,
+                   'softwareVersion': sw_config,
+                   'hardwareVersion': hw_config,
                    'robotId': self.robot_id
                }
                }
