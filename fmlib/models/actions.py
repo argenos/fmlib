@@ -27,6 +27,14 @@ class Action(MongoModel, EmbeddedMongoModel):
         ignore_unknown_fields = True
 
     @classmethod
+    def create_new(cls, **kwargs):
+        if 'action_id' not in kwargs.keys():
+            kwargs.update(action_id=uuid.uuid4())
+        action = cls(**kwargs)
+        action.save()
+        return action
+
+    @classmethod
     def get_action(cls, action_id):
         return cls.objects.get_action(action_id)
 
