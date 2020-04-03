@@ -63,6 +63,10 @@ class SoftwareComponent(EmbeddedMongoModel):
     name = fields.CharField(primary_key=True)
     package = fields.CharField()
     version = fields.CharField()
+    version_uid = fields.CharField()
+    update_available = fields.BooleanField()
+    config_mismatch = fields.BooleanField()
+    uncommitted_changes = fields.BooleanField()
 
 
 class SoftwareStack(MongoModel):
