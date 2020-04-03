@@ -115,10 +115,13 @@ class Message(dict):
 
 class MessageFactory:
 
-    def __init__(self, meta_model_template="%s-schema.json"):
+    def __init__(self, meta_model_prefix=None):
         self.logger = logging.getLogger(__name__)
-        self.meta_model_template = meta_model_template
-        self.logger.debug("Initialized with meta model template: %s", meta_model_template)
+        if meta_model_prefix is None:
+            self.meta_model_template = "%s-schema.json"
+        else:
+            self.meta_model_template = meta_model_prefix + "-%s-schema.json"
+        self.logger.debug("Initialized with meta model prefix: %s", meta_model_prefix)
 
     def create_payload(self, model):
         """Creates a python dictionary from a fmlib model
