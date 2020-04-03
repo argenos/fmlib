@@ -88,6 +88,7 @@ class TaskConstraints(EmbeddedMongoModel):
 
 
 class TaskPlan(EmbeddedMongoModel):
+    robot = fields.CharField()
     actions = fields.EmbeddedDocumentListField(Action)
 
 
@@ -189,6 +190,9 @@ class Task(MongoModel):
 
     def assign_robots(self, robot_ids):
         self.assigned_robots = robot_ids
+        # Assigns the first robot in the list to the plan
+        # Does not work for single-task multi-robot
+        self.plan[0].robot = robot_ids[0]
         self.update_status(TaskStatusConst.ALLOCATED)
         self.save()
 
