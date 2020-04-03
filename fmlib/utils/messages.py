@@ -102,8 +102,8 @@ class Message(dict):
 
     @classmethod
     def from_model(cls, model, **kwargs):
-        meta_model_template = kwargs.get('template', '%s')
-        mf = MessageFactory(meta_model_template)
+        meta_model_prefix = kwargs.get('meta_model_prefix')
+        mf = MessageFactory(meta_model_prefix)
         return mf.create_message(model)
 
     def refresh(self):
