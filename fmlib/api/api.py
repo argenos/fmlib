@@ -33,7 +33,7 @@ class API:
         self.config_params = dict()
         self.middleware_collection = middleware
         self._configure(kwargs)
-        self._mf = MessageFactory()
+        self._mf = MessageFactory(kwargs.get('schema', 'unknown'))
 
         self.logger.info("Initialized API")
 
