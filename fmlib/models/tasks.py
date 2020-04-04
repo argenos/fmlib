@@ -88,7 +88,7 @@ class TaskConstraints(EmbeddedMongoModel):
 
 
 class TaskPlan(EmbeddedMongoModel):
-    robot = fields.CharField()
+    robot = fields.CharField(blank=True)
     actions = fields.EmbeddedDocumentListField(Action)
 
 
