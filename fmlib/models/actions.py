@@ -16,10 +16,20 @@ class ActionQuerySet(QuerySet):
 ActionManager = Manager.from_queryset(ActionQuerySet)
 
 
+class Duration(EmbeddedMongoModel):
+    mean = fields.FloatField()
+    variance = fields.FloatField()
+
+    def update(self, mean, variance):
+        self.mean = mean
+        self.variance = variance
+
+
 class Action(MongoModel, EmbeddedMongoModel):
 
     action_id = fields.UUIDField(primary_key=True)
     type = fields.CharField()
+    duration = fields.EmbeddedDocumentField(Duration, blank=True)
 
     objects = ActionManager()
 
@@ -33,6 +43,12 @@ class Action(MongoModel, EmbeddedMongoModel):
         action = cls(**kwargs)
         action.save()
         return action
+
+    def update_duration(self, mean, variance):
+        if not self.duration:
+            self.duration = Duration()
+        self.duration.update(mean, variance)
+        self.save()
 
     @classmethod
     def get_action(cls, action_id):
