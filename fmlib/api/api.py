@@ -74,11 +74,11 @@ class API:
             self.logger.debug("Configuring %s API", option)
             interface = None
             if option == 'zyre':
-                interface = API.get_zyre_api(config)
+                interface = self.get_zyre_api(config)
             elif option == 'ros':
-                interface = API.get_ros_api(config)
+                interface = self.get_ros_api(config)
             elif option == 'rest':
-                interface = API.get_rest_api(config)
+                interface = self.get_rest_api(config)
 
             self.__dict__[option] = interface
             self.interfaces.append(interface)
@@ -86,8 +86,8 @@ class API:
         self.publish_dict.update(config_params.get('zyre').get('publish'))
         self.logger.debug("Publish dictionary: %s", self.publish_dict)
 
-    @staticmethod
-    def get_zyre_api(zyre_config):
+    @classmethod
+    def get_zyre_api(cls, zyre_config):
         """Create an object of type ZyreInterface
 
         Args:
@@ -100,8 +100,8 @@ class API:
         zyre_api = ZyreInterface(**zyre_config)
         return zyre_api
 
-    @staticmethod
-    def get_ros_api(ros_config):
+    @classmethod
+    def get_ros_api(cls, ros_config):
         """Create an object of type ROSInterface
 
         Args:
@@ -112,8 +112,8 @@ class API:
         """
         return ROSInterface(**ros_config)
 
-    @staticmethod
-    def get_rest_api(rest_config):
+    @classmethod
+    def get_rest_api(cls, rest_config):
         """Create an object of type RESTInterface
 
         Args:
