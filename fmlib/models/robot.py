@@ -8,11 +8,22 @@ from pymodm.context_managers import switch_collection
 from pymodm.manager import Manager
 from pymodm.queryset import QuerySet
 from pymongo.errors import ServerSelectionTimeoutError
-from ropod.structs.status import AvailabilityStatus
+from ropod.structs.status import AvailabilityStatus, ComponentStatus as ComponentStatusConst
 
 
 class ComponentStatus(EmbeddedMongoModel):
-    pass
+    status = fields.IntegerField(default=ComponentStatusConst.OPTIMAL)
+    issues = fields.DictField(blank=True)
+
+    class Meta:
+        cascade = True
+
+    def update_status(self, health_status, issues=None):
+        if issues is None:
+            issues = dict()
+
+        self.status = health_status
+        self.issues = issues
 
 
 class CurrentTask(EmbeddedMongoModel):
@@ -95,7 +106,7 @@ class Robot(MongoModel):
     robot_id = fields.CharField(primary_key=True)
     uuid = fields.UUIDField()
     version = fields.EmbeddedDocumentField(Version)
-    # status = fields.EmbeddedDocumentField(RobotStatus)
+    status = fields.EmbeddedDocumentField(RobotStatus)
     position = fields.EmbeddedDocumentField(Position)
 
     objects = RobotManager()
