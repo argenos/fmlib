@@ -196,6 +196,11 @@ class Task(MongoModel):
         self.update_status(TaskStatusConst.ALLOCATED)
         self.save()
 
+    def unassign_robots(self):
+        self.assigned_robots = list()
+        self.plan[0].robot = None
+        self.save()
+
     def update_plan(self, task_plan):
         # Adds the section of the plan that is independent from the robot,
         # e.g., for transportation tasks, the plan between pickup and delivery
