@@ -155,7 +155,7 @@ class API:
             **kwargs:
 
         """
-        self.logger.info("Adding %s callback to %s", function, middleware)
+        self.logger.debug("Adding %s callback to %s", function, middleware)
         getattr(self, middleware).register_callback(function, **kwargs)
 
     def start(self):
