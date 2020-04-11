@@ -52,13 +52,16 @@ class API:
 
         self.logger.debug("Publishing message of type %s", msg_type)
 
-        try:
-            method = self.publish_dict.get(msg_type.lower()).get('method')
-        except ValueError:
-            self.logger.error("No method defined for message %", msg_type)
-            return
-
         for option in self.middleware_collection:
+            try:
+                option_dict = self.publish_dict.get(option)
+                if not option_dict:
+                    continue
+                method = option_dict.get(msg_type.lower()).get('method')
+            except ValueError:
+                self.logger.error("No method defined for message % in option %s", msg_type, option)
+                continue
+
             self.logger.debug('Using method %s to publish message using %s', method, option)
             getattr(self.__dict__[option], method)(msg, **kwargs)
 
@@ -83,7 +86,8 @@ class API:
             self.__dict__[option] = interface
             self.interfaces.append(interface)
 
-        self.publish_dict.update(config_params.get('zyre').get('publish'))
+            self.publish_dict[option] = config.get('publish')
+
         self.logger.debug("Publish dictionary: %s", self.publish_dict)
 
     @classmethod
