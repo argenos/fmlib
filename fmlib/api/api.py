@@ -33,7 +33,7 @@ class API:
         self.config_params = dict()
         self.middleware_collection = middleware
         self._configure(kwargs)
-        self._mf = MessageFactory()
+        self._mf = MessageFactory(kwargs.get('schema', 'unknown'))
 
         self.logger.info("Initialized API")
 
@@ -52,13 +52,16 @@ class API:
 
         self.logger.debug("Publishing message of type %s", msg_type)
 
-        try:
-            method = self.publish_dict.get(msg_type.lower()).get('method')
-        except ValueError:
-            self.logger.error("No method defined for message %", msg_type)
-            return
-
         for option in self.middleware_collection:
+            try:
+                option_dict = self.publish_dict.get(option)
+                if not option_dict:
+                    continue
+                method = option_dict.get(msg_type.lower()).get('method')
+            except ValueError:
+                self.logger.error("No method defined for message % in option %s", msg_type, option)
+                continue
+
             self.logger.debug('Using method %s to publish message using %s', method, option)
             getattr(self.__dict__[option], method)(msg, **kwargs)
 
@@ -74,20 +77,21 @@ class API:
             self.logger.debug("Configuring %s API", option)
             interface = None
             if option == 'zyre':
-                interface = API.get_zyre_api(config)
+                interface = self.get_zyre_api(config)
             elif option == 'ros':
-                interface = API.get_ros_api(config)
+                interface = self.get_ros_api(config)
             elif option == 'rest':
-                interface = API.get_rest_api(config)
+                interface = self.get_rest_api(config)
 
             self.__dict__[option] = interface
             self.interfaces.append(interface)
 
-        self.publish_dict.update(config_params.get('zyre').get('publish'))
+            self.publish_dict[option] = config.get('publish')
+
         self.logger.debug("Publish dictionary: %s", self.publish_dict)
 
-    @staticmethod
-    def get_zyre_api(zyre_config):
+    @classmethod
+    def get_zyre_api(cls, zyre_config):
         """Create an object of type ZyreInterface
 
         Args:
@@ -100,8 +104,8 @@ class API:
         zyre_api = ZyreInterface(**zyre_config)
         return zyre_api
 
-    @staticmethod
-    def get_ros_api(ros_config):
+    @classmethod
+    def get_ros_api(cls, ros_config):
         """Create an object of type ROSInterface
 
         Args:
@@ -112,8 +116,8 @@ class API:
         """
         return ROSInterface(**ros_config)
 
-    @staticmethod
-    def get_rest_api(rest_config):
+    @classmethod
+    def get_rest_api(cls, rest_config):
         """Create an object of type RESTInterface
 
         Args:
@@ -155,7 +159,7 @@ class API:
             **kwargs:
 
         """
-        self.logger.info("Adding %s callback to %s", function, middleware)
+        self.logger.debug("Adding %s callback to %s", function, middleware)
         getattr(self, middleware).register_callback(function, **kwargs)
 
     def start(self):

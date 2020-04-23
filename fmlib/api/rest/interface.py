@@ -51,10 +51,11 @@ class RESTInterface(object):
             resource_config = route.get('resource')
             resource_module = import_module(resource_config.get('module'))
             resource_class = getattr(resource_module, resource_config.get('class'))
-            self.app.add_route(path, resource_class())
+            self.add_route(path, resource_class, **kwargs)
 
-    def add_route(self, route, resource):
-        self.app.add_route(route, resource)
+    def add_route(self, route, resource, **kwargs):
+        resource_instance = resource(**kwargs)
+        self.app.add_route(route, resource_instance)
 
     def start(self):
         x = threading.Thread(target=self.server.serve_forever)
